@@ -2,6 +2,8 @@
 #include "AutoLight.cginc"
 #include "UnityCG.cginc"
 
+#define SPLIT_TERM_DIFFUSE 1
+
 struct VertexInput
 {
 	float4 vertex : POSITION;
@@ -30,7 +32,7 @@ struct VertexOutput
 	float3 normal : TEXCOORD8;
 	//float4 screenPos : TEXCOORD9;
 	//float distanceToOrigin : TEXCOORD10;
-	SHADOW_COORDS(7)
+	UNITY_SHADOW_COORDS(7)
 };
 
 
@@ -47,7 +49,7 @@ struct VertexOutput
 		float3 normal : TEXCOORD8;
 		//float4 screenPos : TEXCOORD9;
 		//float distanceToOrigin : TEXCOORD10;
-		SHADOW_COORDS(7)
+		UNITY_SHADOW_COORDS(7)
 	};
 
 	struct g2f
@@ -60,7 +62,7 @@ struct VertexOutput
 		float4 color : TEXCOORD6;
 		//float4 screenPos : TEXCOORD8;
 		//float distanceToOrigin : TEXCOORD9;
-		SHADOW_COORDS(7)
+		UNITY_SHADOW_COORDS(7)
 	};
 #endif
 
@@ -129,6 +131,8 @@ samplerCUBE _BakedCubemap;
 
 half4 _Color, _ShadowColor, _ShadowRim, _OutlineColor, _SSColor, _OcclusionColor;
 half _Cutoff;
+
+half _IndirectShadowSharpness;
 
 half _Metallic, _Glossiness;
 half _BumpScale, _DetailNormalMapScale;

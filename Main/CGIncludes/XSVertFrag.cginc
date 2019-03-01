@@ -21,7 +21,7 @@ VertexOutput vert (VertexInput v)
 	//o.screenPos = ComputeScreenPos(o.pos);
 	
 
-	TRANSFER_SHADOW(o);
+	UNITY_TRANSFER_SHADOW(o, float2(0,0));
 	return o;
 }
 
@@ -80,6 +80,16 @@ VertexOutput vert (VertexInput v)
 	}
 #endif
 
+float FadeShadows(float3 worldPos, float attenuation) {
+	float viewZ =
+		dot(_WorldSpaceCameraPos - worldPos, UNITY_MATRIX_V[2].xyz);
+	float shadowFadeDistance =
+		UnityComputeShadowFadeDistance(worldPos, viewZ);
+	float shadowFade = UnityComputeShadowFade(shadowFadeDistance);
+	attenuation = saturate(attenuation + shadowFade);
+	return attenuation;
+}
+
 float4 frag (
 	#if defined(Geometry)
 		g2f i
@@ -89,9 +99,19 @@ float4 frag (
 	) : SV_Target
 {
 	UNITY_LIGHT_ATTENUATION(attenuation, i, i.worldPos.xyz);
+	attenuation = FadeShadows(i.worldPos, attenuation);
+	
 	#if defined(DIRECTIONAL)
-		//attenuation = //smoothstep(0, 1, attenuation); // This cleans up light atten from directional lights.
-		half nAtten = pow(1-attenuation, 5); // Take 1-Atten as a mask to clean up left over artifacts from self shadowing.
+		//attenuation += (ddx(attenuation) + ddy(attenuation)) * 0.05;
+		
+		//float2 seed = calcScreenUVs(i.screenPos, i.distanceToOrigin) * 2;
+		//float bn = tex2D(_BlueNoise, seed).r;
+		//float bn_tri = remap_noise_tri_erp(bn);
+
+		//attenuation += (((bn_tri*2.0 - 0.5)) / 256.0) * (1 - saturate(dot(i.ntb[0], UnityWorldSpaceLightDir(i.worldPos)))) * 4;
+		attenuation = smoothstep(0, 0.5, attenuation); // This cleans up light atten from directional lights.
+		//attenuation += (hash12(abs(calcScreenUVs(i.screenPos, i.distanceToOrigin) + float2(30.f, 30.f)) * _ScreenParams.xy * 2.f) * 0.5 - 0.5) / 30.f/* * (1 - saturate(dot(i.ntb[0], UnityWorldSpaceLightDir(i.worldPos))))*/;
+		half nAtten = pow(1-attenuation, 7); // Take 1-Atten as a mask to clean up left over artifacts from self shadowing.
 		attenuation = saturate(attenuation + (1-nAtten));
 	#endif
 	

@@ -1,3 +1,28 @@
+
+#define HASHSCALE1 .1031
+
+float hash12(float2 p)
+{
+	float3 p3 = frac(float3(p.xyx) * HASHSCALE1);
+	p3 += dot(p3, p3.yzx + 19.19);
+	return frac((p3.x + p3.y) * p3.z);
+}
+
+float hash13(float3 p3)
+{
+	p3 = frac(p3 * HASHSCALE1);
+	p3 += dot(p3, p3.yzx + 19.19);
+	return frac((p3.x + p3.y) * p3.z);
+}
+
+float remap_noise_tri_erp(const float v)
+{
+	float r2 = 0.5 * v;
+	float f1 = sqrt(r2);
+	float f2 = 1.0 - sqrt(r2 - 0.25);
+	return (v < 0.5) ? f1 : f2;
+}
+
 void calcNormal(inout XSLighting i)
 {
 	half3 nMap = UnpackNormal(i.normalMap);

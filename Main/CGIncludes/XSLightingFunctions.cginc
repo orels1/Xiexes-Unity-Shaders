@@ -35,6 +35,42 @@
 	}
 //
 
+#if SPLIT_TERM_DIFFUSE
+// Get the most intense light Dir from probes OR from a light source. Method developed by Xiexe / Merlin
+half3 calcLightDir(XSLighting i)
+{
+	half3 lightDir = UnityWorldSpaceLightDir(i.worldPos);
+	lightDir *= i.attenuation * dot(_LightColor0, grayscaleVec);
+
+	half3 probeLightDir = unity_SHAr.xyz + unity_SHAg.xyz + unity_SHAb.xyz;
+	lightDir = (lightDir/* + probeLightDir*/);
+
+		//#if !defined(POINT) && !defined(SPOT)
+		//	if(length(unity_SHAr.xyz*unity_SHAr.w + unity_SHAg.xyz*unity_SHAg.w + unity_SHAb.xyz*unity_SHAb.w) == 0)
+		//	{
+		//		lightDir = float4(1, 1, 1, 0);
+		//	}
+		//#endif
+
+	return normalize(lightDir);
+}
+
+half3 calcLightDirIndirect(out float focus)
+{
+	half3 lightDir = unity_SHAr.xyz + unity_SHAg.xyz + unity_SHAb.xyz;
+
+#if !defined(POINT) && !defined(SPOT)
+	if (length(unity_SHAr.xyz*unity_SHAr.w + unity_SHAg.xyz*unity_SHAg.w + unity_SHAb.xyz*unity_SHAb.w) == 0)
+	{
+		lightDir = float4(1, 1, 1, 0);
+	}
+#endif
+
+	focus = saturate(length(lightDir));
+
+	return normalize(lightDir);
+}
+#else
 // Get the most intense light Dir from probes OR from a light source. Method developed by Xiexe / Merlin
 half3 calcLightDir(XSLighting i)
 {
@@ -53,6 +89,7 @@ half3 calcLightDir(XSLighting i)
 
 	return normalize(lightDir);
 }
+#endif
 
 half4 calcLightCol(int lightEnv, float3 indirectDiffuse)
 {
@@ -106,15 +143,15 @@ half3 calcDirectSpecular(XSLighting i, DotProducts d, half4 lightCol, half3 indi
 	{
 		half reflectionUntouched = saturate(pow(d.rdv, _SpecularArea * 128));
 		//float dotHalftone = 1-DotHalftone(i, reflectionUntouched);
-		float specular = lerp(reflectionUntouched, round(reflectionUntouched), _SpecularStyle) * specularIntensity * lightCol * (_SpecularArea * 2) ;
-		return specular * i.attenuation * i.albedo;
+		float specular = lerp(reflectionUntouched, round(reflectionUntouched), _SpecularStyle) * specularIntensity * lightCol * (_SpecularArea * 2) * i.albedo;
+		return specular * i.attenuation;
 	}
 	else if(_SpecMode == 1)
 	{
 		half smooth = saturate(D_GGXAnisotropic(d.tdh, d.bdh, d.ndh, ax, ay));
 		half sharp = round(smooth) * 2 * 0.5;
 		float specular = lerp(smooth, sharp, _SpecularStyle) * lightCol * specularIntensity;
-		return specular * i.attenuation * i.albedo;
+		return specular * i.attenuation;
 	}
 	else
 	{
@@ -132,10 +169,43 @@ half3 calcDirectSpecular(XSLighting i, DotProducts d, half4 lightCol, half3 indi
 	}
 }
 
+#if SPLIT_TERM_DIFFUSE
+//Indirect Lighting functions
+half4 calcRampIndirect(float ndl, float focus)
+{
+	half remapRamp;
+	remapRamp = ndl * 0.5 + 0.5;
+
+	//half4 ramp = tex2Dlod(_IndirectRamp, float4(remapRamp, remapRamp, 0, (1 - _IndirectShadowSharpness) * focus * log2(max(_IndirectRamp_TexelSize.z, _IndirectRamp_TexelSize.w))));
+	half4 ramp = tex2Dlod(_Ramp, float4(remapRamp, remapRamp, 0, 0));
+
+	return ramp;
+}
+
+half3 calcIndirectDiffuse(XSLighting i, float3 lightDir)
+{
+	half focus = 0.f;
+	half3 indirectDir = calcLightDirIndirect(focus);
+	half3 indirectDominantColor = ShadeSH9(float4(indirectDir, 1));
+
+	half4 indirectRamp = calcRampIndirect(dot(i.normal, indirectDir), focus);
+	half3 indirectColor = ShadeSH9(float4(0, 0, 0, 1)).rgb;
+		
+	//half3 diffuse = lerp(indirectRamp * indirectDominantColor, _ShadowColor * ShadeSH9(float4(0, 0, 0, 1)).rgb, 1 - dot(indirectRamp, grayscaleVec));
+	half focusAdj = focus / (dot(indirectColor, grayscaleVec) + 1e-7f);
+	half focusInterp = saturate(focusAdj * focusAdj);
+
+	half3 diffuse = lerp(_ShadowColor * indirectColor, indirectRamp * indirectDominantColor, focusInterp);
+	//half3 diffuse = indirectRamp * indirectDominantColor;
+
+	return i.albedo * diffuse; 
+}
+#else
 half3 calcIndirectDiffuse()
 {
 	return ShadeSH9(float4(0, 0, 0, 1)); // We don't care about anything other than the color from GI, so only feed in 0,0,0, rather than the normal
 }
+#endif
 
 half3 calcIndirectSpecular(XSLighting i, DotProducts d, float4 metallicSmoothness, half3 reflDir, half3 indirectLight, float3 viewDir)
 {	//This function handls Unity style reflections, Matcaps, and a baked in fallback cubemap.
@@ -210,6 +280,18 @@ half4 calcRamp(XSLighting i, DotProducts d)
 	return ramp;
 }
 
+#if SPLIT_TERM_DIFFUSE
+half4 calcDiffuse(XSLighting i, DotProducts d, float3 indirectDiffuse, float4 lightCol) 
+{	
+	float4 diffuse; 
+	half4 ramp = calcRamp(i, d);
+	diffuse = (ramp * lightCol) * i.attenuation;
+
+	// Roughly equal to the integral of the first 50% of the ramp facing the light (cos(nol) bounded from 0 to PI/4). Really mostly a magic number to correct slightly for super bright direct lights
+	// Realistically could just be part of the shadow ramp but I'm lazy
+	return i.albedo * diffuse * 0.7f;
+}
+#else
 half4 calcDiffuse(XSLighting i, DotProducts d, float3 indirectDiffuse, float4 lightCol) 
 {	
 	float4 diffuse; 
@@ -220,6 +302,7 @@ half4 calcDiffuse(XSLighting i, DotProducts d, float3 indirectDiffuse, float4 li
 
 	return i.albedo * diffuse;
 }
+#endif
 
 //Subsurface Scattering - Based on a 2011 GDC Conference from by Colin Barre-Bresebois & Marc Bouchard
 //Modified by Xiexe

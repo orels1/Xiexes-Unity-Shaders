@@ -24,7 +24,16 @@ half4 XSLighting_BRDF_Toon(XSLighting i)
     d.svdn = abs(dot(stereoViewDir, i.normal));
 
     i.albedo.rgb *= (1-metallicSmoothnessMask.x); 
+
+#if SPLIT_TERM_DIFFUSE
+    half3 indirectDiffuse = ShadeSH9(float4(0,0,0,1));
+#if defined(DIRECTIONAL)
+    half3 indirectDiffuseDirect = calcIndirectDiffuse(i, lightDir);
+#endif
+#else
     half3 indirectDiffuse = calcIndirectDiffuse();
+#endif
+
     half4 lightCol = calcLightCol(lightEnv, indirectDiffuse);
     half4 diffuse = calcDiffuse(i, d, indirectDiffuse, lightCol);
 
@@ -43,9 +52,16 @@ half4 XSLighting_BRDF_Toon(XSLighting i)
     col += directSpecular.xyzz;
     col += rimLight;
     col += subsurface;
-    col *= occlusion;
+#if defined(DIRECTIONAL) && SPLIT_TERM_DIFFUSE
+    col += float4(indirectDiffuseDirect, 0);
+#endif
+    //col *= occlusion;
 
     float4 finalColor = lerp(col, outlineColor, i.isOutline);
+
+#if UNITY_PASS_FORWARDBASE
+	//finalColor = tex2D(_ShadowMapTexture, i.uv0);
+#endif
 
 	return finalColor;
 }
