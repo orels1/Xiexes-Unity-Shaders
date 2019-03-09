@@ -1,9 +1,11 @@
-half4 XSLighting_BRDF_Toon(XSLighting i)
+half4 XSLighting_BRDF_Toon(XSLighting i, bool face)
 {   
     calcNormal(i);
-    
+    face = IsInMirror() ? !face : face;
+
     int lightEnv = int(any(_WorldSpaceLightPos0.xyz));
     half3 lightDir = calcLightDir(i);
+    lightDir = face ? lightDir : -lightDir;
     half3 viewDir = calcViewDir(i.worldPos);
     half3 stereoViewDir = calcStereoViewDir(i.worldPos);
     half4 metallicSmoothness = calcMetallicSmoothness(i);

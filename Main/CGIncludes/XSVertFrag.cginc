@@ -86,6 +86,7 @@ float4 frag (
 	#else
 		VertexOutput i
 	#endif
+	, float facing : VFACE
 	) : SV_Target
 {
 	UNITY_LIGHT_ATTENUATION(attenuation, i, i.worldPos.xyz);
@@ -120,7 +121,7 @@ float4 frag (
 	o.isOutline = i.color.a;
 	//o.screenUV = calcScreenUVs(i.screenPos, i.distanceToOrigin);
 	
-	float4 col = XSLighting_BRDF_Toon(o);
+	float4 col = XSLighting_BRDF_Toon(o, facing > 0);
 	calcAlpha(o);
 	return float4(col.rgb, o.alpha);
 }
