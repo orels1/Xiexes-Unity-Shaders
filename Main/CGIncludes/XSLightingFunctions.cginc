@@ -163,10 +163,8 @@ half3 calcIndirectSpecular(XSLighting i, DotProducts d, float4 metallicSmoothnes
 		}
 
 		UNITY_BRANCH
-		if (empty) {
-			if (empty2) {
-				indirectSpecular = texCUBElod(_BakedCubemap, float4(reflDir, metallicSmoothness.w * UNITY_SPECCUBE_LOD_STEPS)) * lightAvg;
-			}
+		if (empty && empty2) {
+			indirectSpecular = texCUBElod(_BakedCubemap, float4(reflDir, metallicSmoothness.w * UNITY_SPECCUBE_LOD_STEPS)) * lightAvg;
 		} else {
 			if (any(indirectSpecular) == 0)
 			{

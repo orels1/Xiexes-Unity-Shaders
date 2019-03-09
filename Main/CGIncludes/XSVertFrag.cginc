@@ -113,6 +113,12 @@ float4 frag (
 
 	o.diffuseColor = o.albedo.rgb; //Store this to separate the texture color and diffuse color for later.
 	o.attenuation = attenuation;
+	facing = IsInMirror() ? 1-facing : facing;
+	if (facing < 0) {
+		i.ntb[0] = -i.ntb[0];
+		i.ntb[1] = -i.ntb[1];
+		i.ntb[2] = -i.ntb[2];
+	}
 	o.normal = i.ntb[0];
 	o.tangent = i.ntb[1];
 	o.bitangent = i.ntb[2];
@@ -121,7 +127,7 @@ float4 frag (
 	o.isOutline = i.color.a;
 	//o.screenUV = calcScreenUVs(i.screenPos, i.distanceToOrigin);
 	
-	float4 col = XSLighting_BRDF_Toon(o, facing > 0);
+	float4 col = XSLighting_BRDF_Toon(o);
 	calcAlpha(o);
 	return float4(col.rgb, o.alpha);
 }
