@@ -96,6 +96,15 @@ float4 frag (
 		attenuation = saturate(attenuation + (1-nAtten));
 	#endif
 	
+	bool face = facing > 0; // True if on front face, False if on back face
+	face = IsInMirror() ? !face : face; // Faces are inverted in a mirror
+
+	if (!face) { // Invert Normals based on face
+		i.ntb[0] = -i.ntb[0];
+		i.ntb[1] = -i.ntb[1];
+		i.ntb[2] = -i.ntb[2];
+	}
+
 	TextureUV t = (TextureUV)0; // Populate UVs
 	InitializeTextureUVs(i, t);
 	
@@ -113,12 +122,6 @@ float4 frag (
 
 	o.diffuseColor = o.albedo.rgb; //Store this to separate the texture color and diffuse color for later.
 	o.attenuation = attenuation;
-	facing = IsInMirror() ? 1-facing : facing;
-	if (facing < 0) {
-		i.ntb[0] = -i.ntb[0];
-		i.ntb[1] = -i.ntb[1];
-		i.ntb[2] = -i.ntb[2];
-	}
 	o.normal = i.ntb[0];
 	o.tangent = i.ntb[1];
 	o.bitangent = i.ntb[2];
