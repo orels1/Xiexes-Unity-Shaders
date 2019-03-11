@@ -160,6 +160,9 @@ void calcAlpha(inout XSLighting i)
 	#endif
 }
 
+
+
+
 // Halftone functions, finish implementing later.. Not correct right now.
 // //Half tone functions
 
