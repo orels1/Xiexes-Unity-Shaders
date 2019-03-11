@@ -160,12 +160,6 @@ void calcAlpha(inout XSLighting i)
 	#endif
 }
 
-bool IsInMirror()
-{
-	return unity_CameraProjection[2][0] != 0.f || unity_CameraProjection[2][1] != 0.f;
-}
-
-
 // Halftone functions, finish implementing later.. Not correct right now.
 // //Half tone functions
 
